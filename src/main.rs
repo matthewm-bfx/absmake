@@ -62,3 +62,21 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interpret_line() {
+        let mut tracker = DirectoryTracker::new();
+        assert_eq!(tracker.current_dir, "");
+
+        tracker.interpret_line("random line");
+        assert_eq!(tracker.current_dir, "");
+
+        let line = r"make[1]: Entering directory '/home/me/source/main'";
+        tracker.interpret_line(line);
+        assert_eq!(tracker.current_dir, "/home/me/source/main");
+    }
+}

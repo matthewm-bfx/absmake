@@ -18,8 +18,8 @@ impl DirectoryTracker {
     }
 
     fn interpret_line(&mut self, line: &str) {
-        let enter_re = Regex::new(r"^make\[[1-9]\]: Entering directory '([^'])'").unwrap();
-        let leave_re = Regex::new(r"^make\[[1-9]\]: Leaving directory '([^'])'").unwrap();
+        let enter_re = Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap();
+        let leave_re = Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap();
 
         if let Some(caps) = enter_re.captures(line) {
             self.current_dir = caps.get(1).unwrap().as_str().to_owned();

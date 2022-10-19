@@ -6,9 +6,11 @@ use std::process::Command;
 use std::process::Stdio;
 
 fn main() -> Result<()> {
-    let args: Vec<String> = env::args().collect();
+    // Pass arguments unchanged to Make, except the program name itself
+    let args: Vec<String> = env::args().skip(1).collect();
 
     // Spawn make process
+    println!("+ make {}", args.join(" "));
     let mut make_cmd = Command::new("make")
         .args(args)
         .stdout(Stdio::piped())

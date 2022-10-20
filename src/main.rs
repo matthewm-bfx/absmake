@@ -7,25 +7,26 @@ use std::path::PathBuf;
 use std::process::Command;
 use std::process::Stdio;
 
-struct DirectoryTracker {
+struct LineProcessor {
     current_dir: String,
 }
 
-impl DirectoryTracker {
+impl LineProcessor {
+    // Default constructor
     fn new() -> Self {
-        DirectoryTracker {
+        LineProcessor {
             current_dir: String::new(),
         }
     }
 
-    fn interpret_line(&mut self, line: &str) {
+    // Process and possibly print a line from Make
+    fn process_line(&mut self, line: &str) {
         let enter_re = Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap();
         let leave_re = Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap();
 
         // Handle entering a directory
         if let Some(caps) = enter_re.captures(line) {
             self.current_dir = caps.get(1).unwrap().as_str().to_owned();
-            println!("+ Current dir is now {}", self.current_dir);
         }
         // Handle leaving a directory. We can only leave a directory if we are already in it.
         else if let Some(caps) = leave_re.captures(line) {
@@ -36,6 +37,9 @@ impl DirectoryTracker {
                 self.current_dir = parent.to_str().unwrap().to_owned();
             }
         }
+
+        // Print out the line to console
+        print!("{line}");
     }
 }
 
@@ -56,14 +60,13 @@ fn main() -> Result<()> {
     let mut reader = BufReader::new(output);
 
     // Parse lines, updating current directory if necessary
-    let mut tracker = DirectoryTracker::new();
+    let mut proc = LineProcessor::new();
     loop {
         let mut buf = String::new();
         match reader.read_line(&mut buf)? {
             0 => break,
-            _ => tracker.interpret_line(&buf),
+            _ => proc.process_line(&buf),
         }
-        print!("{buf}");
     }
 
     // Wait for completion
@@ -80,20 +83,25 @@ mod tests {
 
     #[test]
     fn interpret_line() {
-        let mut tracker = DirectoryTracker::new();
+        let mut tracker = LineProcessor::new();
         assert_eq!(tracker.current_dir, "");
 
-        tracker.interpret_line("random line");
+        tracker.process_line("random line");
         assert_eq!(tracker.current_dir, "");
 
         // Enter directory
         let enter_line = r"make[1]: Entering directory '/home/me/source/main'";
-        tracker.interpret_line(enter_line);
+        tracker.process_line(enter_line);
         assert_eq!(tracker.current_dir, "/home/me/source/main");
 
         // Leave directory
         let leave_line = r"make[1]: Leaving directory '/home/me/source/main'";
-        tracker.interpret_line(leave_line);
+        tracker.process_line(leave_line);
+        assert_eq!(tracker.current_dir, "/home/me/source");
+
+        // Leave directory only works if we are already in the directory
+        let leave_line = r"make[1]: Leaving directory '/home/me/something/else";
+        tracker.process_line(leave_line);
         assert_eq!(tracker.current_dir, "/home/me/source");
     }
 }

@@ -8,7 +8,12 @@ use std::process::Command;
 use std::process::Stdio;
 
 struct LineProcessor {
+    // Current state
     current_dir: String,
+
+    // Regexes for line matching
+    enter_re: Regex,
+    leave_re: Regex,
 }
 
 impl LineProcessor {
@@ -16,20 +21,19 @@ impl LineProcessor {
     fn new() -> Self {
         LineProcessor {
             current_dir: String::new(),
+            enter_re: Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap(),
+            leave_re: Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap(),
         }
     }
 
     // Process and possibly print a line from Make
     fn process_line(&mut self, line: &str) {
-        let enter_re = Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap();
-        let leave_re = Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap();
-
         // Handle entering a directory
-        if let Some(caps) = enter_re.captures(line) {
+        if let Some(caps) = self.enter_re.captures(line) {
             self.current_dir = caps.get(1).unwrap().as_str().to_owned();
         }
         // Handle leaving a directory. We can only leave a directory if we are already in it.
-        else if let Some(caps) = leave_re.captures(line) {
+        else if let Some(caps) = self.leave_re.captures(line) {
             let left_dir = caps.get(1).unwrap().as_str().to_owned();
             if left_dir == self.current_dir {
                 let path = PathBuf::from(left_dir);

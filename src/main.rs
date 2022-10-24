@@ -24,7 +24,7 @@ impl LineProcessor {
             current_dir: String::new(),
             enter_re: Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap(),
             leave_re: Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap(),
-            error_re: Regex::new(r"^[^:]+:[0-9]+:").unwrap(),
+            error_re: Regex::new(r"^[^:]+:[0-9]+:[0-9]+: error:").unwrap(),
         }
     }
 
@@ -49,6 +49,10 @@ impl LineProcessor {
         // Add path to a diagnostic message
         else if self.error_re.is_match(trimmed) {
             println!("{}/{trimmed}", self.current_dir);
+        }
+        // Anything else, just pass through
+        else {
+            println!("{trimmed}");
         }
     }
 }

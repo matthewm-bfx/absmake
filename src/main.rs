@@ -31,23 +31,24 @@ impl LineProcessor {
     // Process and possibly print a line from Make
     fn process_line(&mut self, line: &str) {
         // Handle entering a directory
-        if let Some(caps) = self.enter_re.captures(line) {
+        let trimmed = line.trim_end();
+        if let Some(caps) = self.enter_re.captures(trimmed) {
             self.current_dir = caps.get(1).unwrap().as_str().to_owned();
-            println!("{line}");
+            println!("{trimmed}");
         }
         // Handle leaving a directory. We can only leave a directory if we are already in it.
-        else if let Some(caps) = self.leave_re.captures(line) {
+        else if let Some(caps) = self.leave_re.captures(trimmed) {
             let left_dir = caps.get(1).unwrap().as_str().to_owned();
             if left_dir == self.current_dir {
                 let path = PathBuf::from(left_dir);
                 let parent = path.parent().expect("failed to identify parent path");
                 self.current_dir = parent.to_str().unwrap().to_owned();
-                println!("{line}");
+                println!("{trimmed}");
             }
         }
         // Add path to a diagnostic message
-        else if self.error_re.is_match(line) {
-            println!("{}/{line}", self.current_dir);
+        else if self.error_re.is_match(trimmed) {
+            println!("{}/{trimmed}", self.current_dir);
         }
     }
 }
@@ -58,8 +59,9 @@ fn main() -> Result<()> {
 
     // Spawn make process
     println!("+ make {}", args.join(" "));
-    let mut make_cmd = Command::new("make")
-        .args(args)
+    let mut make_cmd = Command::new("sh")
+        .arg("-c")
+        .arg(format!("make {} 2>&1", args.join(" ")))
         .stdout(Stdio::piped())
         .spawn()
         .expect("failed to start make");

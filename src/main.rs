@@ -24,7 +24,7 @@ impl LineProcessor {
             current_dir: String::new(),
             enter_re: Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap(),
             leave_re: Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap(),
-            error_re: Regex::new(r"^[^:]+:[0-9]+:[0-9]+: error:").unwrap(),
+            error_re: Regex::new(r"^[^/][^:]+:[0-9]+:[0-9]+: (error|warning|note):").unwrap(),
         }
     }
 

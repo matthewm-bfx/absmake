@@ -14,6 +14,7 @@ struct LineProcessor {
     // Regexes for line matching
     enter_re: Regex,
     leave_re: Regex,
+    error_re: Regex,
 }
 
 impl LineProcessor {
@@ -23,6 +24,7 @@ impl LineProcessor {
             current_dir: String::new(),
             enter_re: Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap(),
             leave_re: Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap(),
+            error_re: Regex::new(r"^[^:]+:[0-9]+:").unwrap(),
         }
     }
 
@@ -31,6 +33,7 @@ impl LineProcessor {
         // Handle entering a directory
         if let Some(caps) = self.enter_re.captures(line) {
             self.current_dir = caps.get(1).unwrap().as_str().to_owned();
+            println!("{line}");
         }
         // Handle leaving a directory. We can only leave a directory if we are already in it.
         else if let Some(caps) = self.leave_re.captures(line) {
@@ -39,11 +42,13 @@ impl LineProcessor {
                 let path = PathBuf::from(left_dir);
                 let parent = path.parent().expect("failed to identify parent path");
                 self.current_dir = parent.to_str().unwrap().to_owned();
+                println!("{line}");
             }
         }
-
-        // Print out the line to console
-        print!("{line}");
+        // Add path to a diagnostic message
+        else if self.error_re.is_match(line) {
+            println!("{}/{line}", self.current_dir);
+        }
     }
 }
 
@@ -107,5 +112,9 @@ mod tests {
         let leave_line = r"make[1]: Leaving directory '/home/me/something/else";
         tracker.process_line(leave_line);
         assert_eq!(tracker.current_dir, "/home/me/source");
+
+        // Add path to a diagnostic message
+        let diag_line = r"ui/mainform.cpp:32:5: error: syntax error";
+        tracker.process_line(diag_line);
     }
 }

@@ -24,7 +24,8 @@ impl LineProcessor {
             current_dir: String::new(),
             enter_re: Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap(),
             leave_re: Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap(),
-            error_re: Regex::new(r"^[^/][^:]+:[0-9]+:[0-9]+: (error|warning|note):").unwrap(),
+            error_re: Regex::new(r"^[^/][^:]+:[0-9]+:[0-9]+: ((fatal )?error|warning|note):")
+                .unwrap(),
         }
     }
 
@@ -107,30 +108,48 @@ mod tests {
 
     #[test]
     fn interpret_line() {
-        let mut tracker = LineProcessor::new();
-        assert_eq!(tracker.current_dir, "");
+        let mut proc = LineProcessor::new();
+        assert_eq!(proc.current_dir, "");
 
-        tracker.process_line("random line");
-        assert_eq!(tracker.current_dir, "");
+        proc.process_line("random line");
+        assert_eq!(proc.current_dir, "");
 
         // Enter directory
         let enter_line = r"make[1]: Entering directory '/home/me/source/main'";
-        tracker.process_line(enter_line);
-        assert_eq!(tracker.current_dir, "/home/me/source/main");
+        proc.process_line(enter_line);
+        assert_eq!(proc.current_dir, "/home/me/source/main");
 
         // Leave directory
         let leave_line = r"make[1]: Leaving directory '/home/me/source/main'";
-        tracker.process_line(leave_line);
-        assert_eq!(tracker.current_dir, "/home/me/source");
+        proc.process_line(leave_line);
+        assert_eq!(proc.current_dir, "/home/me/source");
 
         // Leave directory only works if we are already in the directory
         let leave_line = r"make[1]: Leaving directory '/home/me/something/else";
-        tracker.process_line(leave_line);
-        assert_eq!(tracker.current_dir, "/home/me/source");
+        proc.process_line(leave_line);
+        assert_eq!(proc.current_dir, "/home/me/source");
 
         // Add path to a diagnostic message
         let diag_line = r"ui/mainform.cpp:32:5: error: syntax error";
-        let output = tracker.process_line(diag_line).expect("missing output line");
-        assert_eq!(output, "/home/me/source/ui/mainform.cpp:32:5: error: syntax error");
+        let output = proc.process_line(diag_line).expect("missing output line");
+        assert_eq!(
+            output,
+            "/home/me/source/ui/mainform.cpp:32:5: error: syntax error"
+        );
+    }
+
+    #[test]
+    fn interpret_fatal_error() {
+        let mut proc = LineProcessor::new();
+
+        proc.process_line("make[1]: Entering directory '/home/m/b/m/Cam'");
+        let output = proc
+            .process_line("Sv.cpp:13:10: fatal error: s/solver.h: No such file or directory")
+            .expect("missing output line");
+
+        assert_eq!(
+            output,
+            "/home/m/b/m/Cam/Sv.cpp:13:10: fatal error: s/solver.h: No such file or directory"
+        );
     }
 }

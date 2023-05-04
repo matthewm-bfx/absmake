@@ -28,13 +28,13 @@ impl LineProcessor {
         }
     }
 
-    // Process and possibly print a line from Make
-    fn process_line(&mut self, line: &str) {
+    // Process and possibly return a line from Make
+    fn process_line(&mut self, line: &str) -> Option<String> {
         // Handle entering a directory
         let trimmed = line.trim_end();
         if let Some(caps) = self.enter_re.captures(trimmed) {
             self.current_dir = caps.get(1).unwrap().as_str().to_owned();
-            println!("{trimmed}");
+            return Some(format!("{trimmed}"));
         }
         // Handle leaving a directory. We can only leave a directory if we are already in it.
         else if let Some(caps) = self.leave_re.captures(trimmed) {
@@ -43,16 +43,25 @@ impl LineProcessor {
                 let path = PathBuf::from(left_dir);
                 let parent = path.parent().expect("failed to identify parent path");
                 self.current_dir = parent.to_str().unwrap().to_owned();
-                println!("{trimmed}");
+                return Some(format!("{trimmed}"));
             }
         }
         // Add path to a diagnostic message
         else if self.error_re.is_match(trimmed) {
-            println!("{}/{trimmed}", self.current_dir);
+            return Some(format!("{}/{trimmed}", self.current_dir));
         }
         // Anything else, just pass through
         else {
-            println!("{trimmed}");
+            return Some(format!("{trimmed}"));
+        }
+
+        None
+    }
+
+    // Convenience method to print the result of prcoess_line()
+    fn print_line(&mut self, line: &str) {
+        if let Some(line) = self.process_line(line) {
+            println!("{line}");
         }
     }
 }
@@ -80,7 +89,7 @@ fn main() -> Result<()> {
         let mut buf = String::new();
         match reader.read_line(&mut buf)? {
             0 => break,
-            _ => proc.process_line(&buf),
+            _ => proc.print_line(&buf),
         }
     }
 
@@ -121,6 +130,7 @@ mod tests {
 
         // Add path to a diagnostic message
         let diag_line = r"ui/mainform.cpp:32:5: error: syntax error";
-        tracker.process_line(diag_line);
+        let output = tracker.process_line(diag_line).expect("missing output line");
+        assert_eq!(output, "/home/me/source/ui/mainform.cpp:32:5: error: syntax error");
     }
 }

@@ -22,8 +22,8 @@ impl LineProcessor {
     fn new() -> Self {
         LineProcessor {
             current_dir: String::new(),
-            enter_re: Regex::new(r"^make\[[1-9]\]: Entering directory '([^']+)'").unwrap(),
-            leave_re: Regex::new(r"^make\[[1-9]\]: Leaving directory '([^']+)'").unwrap(),
+            enter_re: Regex::new(r"^make(?:\[[1-9]\])?: Entering directory '(?<dir>[^']+)'").unwrap(),
+            leave_re: Regex::new(r"^make(?:\[[1-9]\])?: Leaving directory '(?<dir>[^']+)'").unwrap(),
             error_re: Regex::new(r"^[^/][^:]+:[0-9]+:[0-9]+: ((fatal )?error|warning|note):")
                 .unwrap(),
         }
@@ -34,12 +34,12 @@ impl LineProcessor {
         // Handle entering a directory
         let trimmed = line.trim_end();
         if let Some(caps) = self.enter_re.captures(trimmed) {
-            self.current_dir = caps.get(1).unwrap().as_str().to_owned();
+            self.current_dir = caps["dir"].to_owned();
             return Some(format!("{trimmed}"));
         }
         // Handle leaving a directory. We can only leave a directory if we are already in it.
         else if let Some(caps) = self.leave_re.captures(trimmed) {
-            let left_dir = caps.get(1).unwrap().as_str().to_owned();
+            let left_dir = caps["dir"].to_owned();
             if left_dir == self.current_dir {
                 let path = PathBuf::from(left_dir);
                 let parent = path.parent().expect("failed to identify parent path");
@@ -136,6 +136,16 @@ mod tests {
             output,
             "/home/me/source/ui/mainform.cpp:32:5: error: syntax error"
         );
+    }
+
+    #[test]
+    fn interpret_line_without_jobid() {
+        let mut proc = LineProcessor::new();
+
+        // Not all make processes include a job ID ("make[1]")
+        assert_eq!(proc.current_dir, "");
+        proc.process_line("make: Entering directory '/home/me/src/LinuxBuild'");
+        assert_eq!(proc.current_dir, "/home/me/src/LinuxBuild");
     }
 
     #[test]
